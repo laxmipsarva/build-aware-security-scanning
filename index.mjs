@@ -1,11 +1,12 @@
 // Programmatic API — import what you need
+
 export {
   // Endpoint scanner
   scanProject,
   printEndpoints,
   detectFramework,
   walkDir,
-  // individual parsers
+  // Individual parsers
   extractNextMethods,
   extractBodyFields,
   extractQueryParams,
@@ -15,10 +16,10 @@ export {
 } from './src/list-endpoints.mjs'
 
 export {
-  // Full suite runner
+  // Full SQLi suite runner
   runAll,
   getSessionCookie,
-  // Individual attack categories
+  // Individual SQLi attack categories
   testLoginBypass,
   testWhereClause,
   testOracleVersion,
@@ -37,3 +38,14 @@ export {
   testOutOfBand,
   testFilterBypass,
 } from './src/test-sqli.mjs'
+
+export {
+  // Full API security suite runner
+  runApiTests,
+  // Individual API attack categories
+  testDocumentationExploitation,
+  testQueryParamPollution,
+  testUnusedEndpoints,
+  testMassAssignment,
+  testRestUrlPollution,
+} from './src/test-api.mjs'

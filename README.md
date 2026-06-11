@@ -1,6 +1,6 @@
 # build-aware-security-scanning
 
-A zero-dependency CLI toolkit that **discovers API endpoints** and **tests for SQL injection** across all 18 OWASP attack categories — built for Next.js (App Router & Pages Router) and Express apps.
+A zero-dependency CLI toolkit that **discovers API endpoints**, **tests for SQL injection** across all 18 OWASP attack categories, and **tests for API-level vulnerabilities** including mass assignment, parameter pollution, and hidden endpoint discovery — built for Next.js (App Router & Pages Router) and Express apps.
 
 ## Install
 
@@ -242,6 +242,60 @@ Each endpoint object:
 
 - Node.js ≥ 18
 - No runtime dependencies — uses only Node.js built-ins and the native `fetch` API
+
+---
+
+---
+
+## `bass-api` — API Security Test Suite
+
+Tests the **running API** for 5 categories of API-level vulnerabilities, optionally using the endpoint list produced by `bass-list`.
+
+```bash
+# Test default URL (localhost:1010)
+bass-api
+
+# Custom base URL
+bass-api http://localhost:3000/api
+
+# Pass project path → auto-discovers endpoints and uses them as test targets
+bass-api http://localhost:1010/farm-management/api /path/to/project
+
+# With credentials (enables authenticated tests)
+TEST_EMAIL=admin@example.com TEST_PASSWORD=secret bass-api http://... /path/to/project
+```
+
+### Attack categories
+
+| # | Category | What is tested |
+|---|---|---|
+| 1 | **API documentation exploitation** | Probes 20+ common doc paths (`/swagger.json`, `/openapi.json`, `/api-docs`, `/redoc`, …). Parses any found schema and flags endpoints missing from source code. Alerts on admin/internal paths. |
+| 2 | **Server-side parameter pollution — query string** | Duplicate params (`?id=1&id=2`), encoded `&` (`%26`), array notation (`id[]=1`), null-byte truncation (`id=val%00`), duplicate JSON keys in POST bodies. |
+| 3 | **Finding and exploiting unused endpoints** | Wordlist of 30+ hidden paths (`/admin`, `/debug`, `/health`, `/export`, …), unexpected HTTP methods on known routes, method-override headers (`X-HTTP-Method-Override`), API version discovery (`/v1`, `/v2`, `/v3`). |
+| 4 | **Mass assignment vulnerability** | Injects 20 privileged fields (`isAdmin`, `role`, `price`, `balance`, `verified`, `userId`, …) into every POST/PUT body. Flags if the response reflects any injected value or if the HTTP status changes. |
+| 5 | **Server-side parameter pollution — REST URL** | Path traversal (`../admin`, `%2e%2e%2f`), null-byte (`1%00.json`), fragment injection, double slash, array params (`1,2,3`), SSTI probe (`{{7*7}}`), query-string override of REST param. |
+
+### Programmatic API
+
+```js
+import { runApiTests, testMassAssignment, testRestUrlPollution } from 'build-aware-security-scanning'
+import { scanProject } from 'build-aware-security-scanning'
+
+const { endpoints } = scanProject('/path/to/project')
+
+// Run full suite
+const stats = await runApiTests({
+  base:      'http://localhost:3000/api',
+  endpoints,
+  cookie:    'AUTH=<session_token>',
+})
+// { passed: 42, failed: 0, errored: 0, skipped: 3 }
+
+// Run a single category
+const stats2 = { passed:0, failed:0, errored:0, skipped:0 }
+const result = (label, status) => { stats2[{pass:'passed',fail:'failed',err:'errored',skip:'skipped'}[status]]++ }
+await testMassAssignment('http://localhost:3000/api', endpoints, 'AUTH=token', result)
+```
 
 ---
 
