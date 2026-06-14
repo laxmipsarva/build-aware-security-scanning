@@ -336,52 +336,25 @@ TEST_EMAIL=admin@example.com TEST_PASSWORD=secret bass-nosql http://localhost:30
 
 ## OWASP Coverage
 
-Each tool maps directly to specific entries in the **[OWASP Top 10 (2021)](https://owasp.org/Top10/)** for web applications and the **[OWASP API Security Top 10 (2023)](https://owasp.org/API-Security/editions/2023/en/0x00-header/)** for APIs.
+Each tool maps directly to the **[OWASP Top 10 (2021)](https://owasp.org/Top10/)** for web applications and the **[OWASP API Security Top 10 (2023)](https://owasp.org/API-Security/editions/2023/en/0x00-header/)** for APIs.
 
-### `bass-sqli` — OWASP Top 10 (2021)
-
-| OWASP | Category | What the suite covers |
-|---|---|---|
-| **A03:2021** | **Injection** | All 18 SQLi attack classes: error-based, blind boolean, blind time-delay (MySQL/MSSQL/Oracle), UNION-based data retrieval, login bypass, out-of-band interaction and exfiltration, schema enumeration via `information_schema` and `all_tables`, and encoding/filter bypass (XML entities, double-encode, comment breaks, case mixing). Every discovered endpoint is tested. |
-
-### `bass-api` — OWASP API Security Top 10 (2023)
-
-| OWASP API | Category | What the suite covers |
-|---|---|---|
-| **API3:2023** | **Broken Object Property Level Authorization** | Mass assignment: injects 20 privileged fields (`isAdmin`, `role`, `price`, `balance`, `verified`, `userId`, …) into every POST/PUT body and flags any that are reflected in the response or change the HTTP status. |
-| **API8:2023** | **Security Misconfiguration** | Query-string parameter pollution (duplicate params, encoded `&`, array notation, null-byte truncation, duplicate JSON keys) and REST URL pollution (path traversal, null-byte, fragment injection, double slash, SSTI probe `{{7*7}}`, query-string REST param override). |
-| **API9:2023** | **Improper Inventory Management** | Documentation exploitation probes 20+ doc endpoints (`/swagger.json`, `/openapi.json`, `/api-docs`, `/redoc`, …) and parses any found schema to surface undocumented or admin paths. Hidden endpoint discovery probes 30+ unlisted paths (`/admin`, `/debug`, `/health`, `/export`, …), unexpected HTTP methods, method-override headers, and API version paths (`/v1`, `/v2`, `/v3`). |
-
-### `bass-graphql` — OWASP API Security Top 10 (2023)
-
-| OWASP API | Category | What the suite covers |
-|---|---|---|
-| **API1:2023** | **Broken Object Level Authorization** | Tests unauthenticated access to schema-derived and common query fields (`me`, `viewer`, `users`, `posts`). Probes IDOR via sequential ID enumeration (IDs 1–5) and aliased batch queries. Checks for unrestricted user-list exposure returning PII without credentials. |
-| **API4:2023** | **Unrestricted Resource Consumption** | Brute-force bypass: sends JSON array batches (10 operations in one HTTP request), alias floods (10 aliased calls in one query document), fragment amplification (one fragment spread 10 times), and deep query nesting (depth 10) to verify that rate limiting applies per-operation rather than per-request. |
-| **API8:2023** | **Security Misconfiguration** | Full introspection scan for sensitive field names (password, token, secret, SSN, CVV, …) and sensitive type names (Admin, Internal, Credential, Session, …). Flags deprecated fields still present in schema. CORS header inspection detects wildcard `Access-Control-Allow-Origin` and credentialed cross-origin access. Checks `Content-Type` restrictions and SameSite cookie attributes on mutations. |
-| **API9:2023** | **Improper Inventory Management** | Hidden endpoint discovery probes 27 common GraphQL paths via POST and GET typename probes. Separately checks for publicly exposed GraphQL IDE/explorer UIs (GraphiQL, Playground, Altair, Voyager) that allow unauthenticated schema browsing and query execution. |
-
-### `bass-nosql` — OWASP Top 10 (2021) & OWASP API Security Top 10 (2023)
-
-| OWASP | Category | What the suite covers |
-|---|---|---|
-| **A03:2021** | **Injection** | All 3 NoSQL injection categories target MongoDB operator injection: `$ne`, `$gt`, `$regex`, `$exists`, `$or`, and `$where` operators injected into login endpoints (auth bypass), regex-based character-by-character value extraction and `$where` timing attacks (data extraction), and `$exists`/`Object.keys()` field name discovery (schema enumeration). |
-| **API2:2023** | **Broken Authentication** | Auth bypass test directly attacks the authentication mechanism — operator injection causes the MongoDB query to match any document regardless of the supplied password, granting access to any account including admin. |
-| **API1:2023** | **Broken Object Level Authorization** | Field enumeration discovers hidden sensitive fields (`isAdmin`, `role`, `permissions`, `twoFactorSecret`) that may be used in authorization decisions — revealing them enables privilege escalation. |
-
-### `bass-xss` — OWASP Top 10 (2021)
-
-| OWASP | Category | What the suite covers |
-|---|---|---|
-| **A03:2021** | **Injection** (includes XSS) | All 28 XSS attack patterns: reflected (HTML context, attribute, JS string, template literal), stored (HTML, href, event handler), DOM-based (document.write, innerHTML, jQuery, AngularJS), and all filter bypass techniques (blocked tags, SVG, custom elements, canonical link, JS URL variants). |
-| **A01:2021** | **Broken Access Control** | Cookie theft via XSS (HttpOnly missing), password capture via auto-fill (autocomplete missing), and CSRF-bypass via XSS (CSRF token readable from DOM). |
-| **A05:2021** | **Security Misconfiguration** | Full CSP header analysis: missing header, report-only mode, `'unsafe-inline'`/`'unsafe-eval'`, wildcard `*`, `data:` URIs, known CDN/JSONP bypass hosts, missing `base-uri`, missing `form-action`, static nonces, dangling markup exfiltration via permissive `img-src`, and missing violation reporting. |
-
-### `bass-csrf` — OWASP Top 10 (2021)
-
-| OWASP | Category | What the suite covers |
-|---|---|---|
-| **A01:2021** | **Broken Access Control** | All 12 CSRF test categories verify that state-changing endpoints correctly reject cross-origin requests: missing defenses (no token, no Origin, no Referer); token bypass via method dependency (GET skips token check), token presence dependency (omitted field skips check), cross-session token reuse (token not bound to session), and forged double-submit cookies; SameSite bypasses via method-override headers (`X-HTTP-Method-Override`, `_method=GET`), open-redirect chains (Strict bypass), sibling-domain CORS misconfiguration, and the 2-minute Lax cookie-refresh grace window; Referer validation bypass via absent header (no-referrer meta tag) and weak contains-check payloads (domain as subdomain, in query string, in path, with prefix). |
+| Tool | Year | Standard | ID | Category | What the suite covers |
+|---|---|---|---|---|---|
+| `bass-sqli` | 2021 | OWASP Top 10 | **A03** | **Injection** | All 18 SQLi attack classes: error-based, blind boolean, blind time-delay (MySQL/MSSQL/Oracle), UNION-based data retrieval, login bypass, out-of-band interaction and exfiltration, schema enumeration via `information_schema` and `all_tables`, and encoding/filter bypass (XML entities, double-encode, comment breaks, case mixing). Every discovered endpoint is tested. |
+| `bass-api` | 2023 | OWASP API Security | **API3** | **Broken Object Property Level Authorization** | Mass assignment: injects 20 privileged fields (`isAdmin`, `role`, `price`, `balance`, `verified`, `userId`, …) into every POST/PUT body and flags any that are reflected in the response or change the HTTP status. |
+| `bass-api` | 2023 | OWASP API Security | **API8** | **Security Misconfiguration** | Query-string parameter pollution (duplicate params, encoded `&`, array notation, null-byte truncation, duplicate JSON keys) and REST URL pollution (path traversal, null-byte, fragment injection, double slash, SSTI probe `{{7*7}}`, query-string REST param override). |
+| `bass-api` | 2023 | OWASP API Security | **API9** | **Improper Inventory Management** | Documentation exploitation probes 20+ doc endpoints (`/swagger.json`, `/openapi.json`, `/api-docs`, `/redoc`, …) and parses any found schema to surface undocumented or admin paths. Hidden endpoint discovery probes 30+ unlisted paths (`/admin`, `/debug`, `/health`, `/export`, …), unexpected HTTP methods, method-override headers, and API version paths (`/v1`, `/v2`, `/v3`). |
+| `bass-graphql` | 2023 | OWASP API Security | **API1** | **Broken Object Level Authorization** | Tests unauthenticated access to schema-derived and common query fields (`me`, `viewer`, `users`, `posts`). Probes IDOR via sequential ID enumeration (IDs 1–5) and aliased batch queries. Checks for unrestricted user-list exposure returning PII without credentials. |
+| `bass-graphql` | 2023 | OWASP API Security | **API4** | **Unrestricted Resource Consumption** | Brute-force bypass: sends JSON array batches (10 ops/request), alias floods (10 aliases/query), fragment amplification (1 fragment × 10 spreads), and deep query nesting (depth 10) to verify that rate limiting applies per-operation rather than per-request. |
+| `bass-graphql` | 2023 | OWASP API Security | **API8** | **Security Misconfiguration** | Full introspection scan for sensitive field names (password, token, secret, SSN, CVV, …) and type names (Admin, Internal, Credential, Session, …). Flags deprecated fields still in schema. CORS inspection detects wildcard origins and credentialed cross-origin access. Checks `Content-Type` restrictions and SameSite cookie attributes on mutations. |
+| `bass-graphql` | 2023 | OWASP API Security | **API9** | **Improper Inventory Management** | Hidden endpoint discovery probes 27 common GraphQL paths via POST and GET typename probes. Checks for publicly exposed GraphQL IDE/explorer UIs (GraphiQL, Playground, Altair, Voyager) that allow unauthenticated schema browsing and query execution. |
+| `bass-nosql` | 2021 | OWASP Top 10 | **A03** | **Injection** | All 3 NoSQL injection categories: `$ne`, `$gt`, `$regex`, `$exists`, `$or`, and `$where` operators injected into login endpoints (auth bypass), regex-based character-by-character value extraction and `$where` timing attacks (data extraction), and `$exists`/`Object.keys()` field name discovery (schema enumeration). |
+| `bass-nosql` | 2023 | OWASP API Security | **API2** | **Broken Authentication** | Auth bypass test directly attacks the authentication mechanism — operator injection causes the MongoDB query to match any document regardless of the supplied password, granting access to any account including admin. |
+| `bass-nosql` | 2023 | OWASP API Security | **API1** | **Broken Object Level Authorization** | Field enumeration discovers hidden sensitive fields (`isAdmin`, `role`, `permissions`, `twoFactorSecret`) that may be used in authorization decisions — revealing them enables privilege escalation. |
+| `bass-xss` | 2021 | OWASP Top 10 | **A03** | **Injection** (includes XSS) | All 28 XSS attack patterns: reflected (HTML context, attribute, JS string, template literal), stored (HTML, href, event handler), DOM-based (document.write, innerHTML, jQuery, AngularJS), and all filter bypass techniques (blocked tags, SVG, custom elements, canonical link, JS URL variants). |
+| `bass-xss` | 2021 | OWASP Top 10 | **A01** | **Broken Access Control** | Cookie theft via XSS (HttpOnly missing), password capture via auto-fill (autocomplete missing), and CSRF-bypass via XSS (CSRF token readable from DOM). |
+| `bass-xss` | 2021 | OWASP Top 10 | **A05** | **Security Misconfiguration** | Full CSP header analysis: missing header, report-only mode, `'unsafe-inline'`/`'unsafe-eval'`, wildcard `*`, `data:` URIs, known CDN/JSONP bypass hosts, missing `base-uri`, missing `form-action`, static nonces, dangling markup exfiltration via permissive `img-src`, and missing violation reporting. |
+| `bass-csrf` | 2021 | OWASP Top 10 | **A01** | **Broken Access Control** | All 12 CSRF test categories: missing defences (no token, no Origin, no Referer); token bypass via method dependency, token presence dependency, cross-session reuse, and forged double-submit cookies; SameSite bypasses via method-override headers, open-redirect chains, sibling-domain CORS, and Lax cookie-refresh grace window; Referer bypass via absent header and weak contains-check payloads. |
 
 ---
 
