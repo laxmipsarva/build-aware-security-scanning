@@ -78,3 +78,21 @@ export {
   testRefererPresenceDependence,
   testBrokenRefererValidation,
 } from './src/test-csrf.mjs'
+
+export {
+  // Full XSS & CSP security suite runner
+  runXssTests,
+  // Individual XSS / CSP attack categories
+  testReflectedXssHtml,
+  testStoredXssHtml,
+  testDomXssDocumentWrite,
+  testDomXssInnerHtml,
+  testDomXssJquery,
+  testXssInAttributes,
+  testXssInJsStrings,
+  testAngularJsXss,
+  testXssFilterBypass,
+  testStoredXssEventHandler,
+  testXssExploitability,
+  testCspSecurity,
+} from './src/test-xss.mjs'

