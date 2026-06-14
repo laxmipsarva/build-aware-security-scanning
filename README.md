@@ -1,6 +1,6 @@
 # build-aware-security-scanning
 
-A zero-dependency CLI toolkit that **discovers API endpoints**, **tests for SQL injection** across all 18 OWASP attack categories, **tests for API-level vulnerabilities** including mass assignment and parameter pollution, **tests GraphQL endpoints** for introspection, IDOR, and brute-force bypasses, **tests for CSRF vulnerabilities** across 12 attack patterns, and **tests for XSS & CSP misconfigurations** across all 28 PortSwigger XSS categories — built for Next.js (App Router & Pages Router) and Express apps.
+A zero-dependency CLI toolkit that **discovers API endpoints**, **tests for SQL injection** across all 18 OWASP attack categories, **tests for API-level vulnerabilities** including mass assignment and parameter pollution, **tests GraphQL endpoints** for introspection, IDOR, and brute-force bypasses, **tests for CSRF vulnerabilities** across 12 attack patterns, **tests for XSS & CSP misconfigurations** across all 28 PortSwigger XSS categories, and **tests for NoSQL injection** covering operator-based auth bypass, regex data extraction, and unknown field enumeration — built for Next.js (App Router & Pages Router) and Express apps.
 
 ## Install
 
@@ -306,6 +306,34 @@ TEST_EMAIL=admin@example.com TEST_PASSWORD=secret bass-xss http://localhost:3000
 
 ---
 
+### `bass-nosql` — NoSQL Injection Security Test Suite
+
+Tests the **running app** for MongoDB operator injection vulnerabilities across 3 attack categories: authentication bypass, data extraction, and unknown field enumeration. Probes both JSON request body injection and query-string `[$operator]` syntax (Express `qs`-parser format).
+
+```bash
+# Test default URL (localhost:3000)
+bass-nosql
+
+# Custom base URL
+bass-nosql http://localhost:3000
+
+# Pass project path to use discovered endpoints as test targets
+bass-nosql http://localhost:3000 /path/to/project
+
+# With credentials (supplements unauthenticated probing)
+TEST_EMAIL=admin@example.com TEST_PASSWORD=secret bass-nosql http://localhost:3000 /path/to/project
+```
+
+**Attack categories:**
+
+| # | Category | What is tested |
+|---|---|---|
+| 1 | **Operator injection — authentication bypass** | Sends 7 operator payloads against all discovered auth endpoints (`/api/auth`, `/api/login`, `/login`, …) using both `username`/`password` and `email`/`password` field pairs. Operators tested: `$ne: null`, `$ne: ""` on both fields, `$gt: ""` on both fields, `$regex: .*`, `$exists: true`, `$or` with multiple usernames, and `$where: return true`. Also tests query-string injection (`username[$ne]=&password[$ne]=`) for apps using Express's extended query parser. A baseline failure is established first — a successful auth response after injection confirms the vulnerability. |
+| 2 | **Operator injection — data extraction via `$regex` and `$where`** | Confirms `$regex` is evaluated by comparing match-all (`.*`) vs no-match (`^ZZZZ…`) responses against baseline. If confirmed, performs a character-by-character first-character probe of the password field across the printable character set. Also probes `$where` with a 2-second sleep for timing-based confirmation of JavaScript execution, and attempts `$where` + regex extraction of field values. Additionally probes GET data endpoints for `[$where]`/`[$ne]` query-string injection. |
+| 3 | **Operator injection — unknown field enumeration** | Uses `$exists: true` to probe 30 sensitive field names (`password`, `token`, `apiKey`, `isAdmin`, `twoFactorSecret`, `ssn`, `creditCard`, …) — a response different from baseline confirms the field exists in the MongoDB document. Then probes `$where: Object.keys(this).indexOf('fieldname') >= 0` to confirm JavaScript-based schema enumeration. Also tests `$exists` injection via GET query params on data endpoints. |
+
+---
+
 ## OWASP Coverage
 
 Each tool maps directly to specific entries in the **[OWASP Top 10 (2021)](https://owasp.org/Top10/)** for web applications and the **[OWASP API Security Top 10 (2023)](https://owasp.org/API-Security/editions/2023/en/0x00-header/)** for APIs.
@@ -332,6 +360,14 @@ Each tool maps directly to specific entries in the **[OWASP Top 10 (2021)](https
 | **API4:2023** | **Unrestricted Resource Consumption** | Brute-force bypass: sends JSON array batches (10 operations in one HTTP request), alias floods (10 aliased calls in one query document), fragment amplification (one fragment spread 10 times), and deep query nesting (depth 10) to verify that rate limiting applies per-operation rather than per-request. |
 | **API8:2023** | **Security Misconfiguration** | Full introspection scan for sensitive field names (password, token, secret, SSN, CVV, …) and sensitive type names (Admin, Internal, Credential, Session, …). Flags deprecated fields still present in schema. CORS header inspection detects wildcard `Access-Control-Allow-Origin` and credentialed cross-origin access. Checks `Content-Type` restrictions and SameSite cookie attributes on mutations. |
 | **API9:2023** | **Improper Inventory Management** | Hidden endpoint discovery probes 27 common GraphQL paths via POST and GET typename probes. Separately checks for publicly exposed GraphQL IDE/explorer UIs (GraphiQL, Playground, Altair, Voyager) that allow unauthenticated schema browsing and query execution. |
+
+### `bass-nosql` — OWASP Top 10 (2021) & OWASP API Security Top 10 (2023)
+
+| OWASP | Category | What the suite covers |
+|---|---|---|
+| **A03:2021** | **Injection** | All 3 NoSQL injection categories target MongoDB operator injection: `$ne`, `$gt`, `$regex`, `$exists`, `$or`, and `$where` operators injected into login endpoints (auth bypass), regex-based character-by-character value extraction and `$where` timing attacks (data extraction), and `$exists`/`Object.keys()` field name discovery (schema enumeration). |
+| **API2:2023** | **Broken Authentication** | Auth bypass test directly attacks the authentication mechanism — operator injection causes the MongoDB query to match any document regardless of the supplied password, granting access to any account including admin. |
+| **API1:2023** | **Broken Object Level Authorization** | Field enumeration discovers hidden sensitive fields (`isAdmin`, `role`, `permissions`, `twoFactorSecret`) that may be used in authorization decisions — revealing them enables privilege escalation. |
 
 ### `bass-xss` — OWASP Top 10 (2021)
 
@@ -438,6 +474,34 @@ const result = (label, status) => { stats3[{pass:'passed',fail:'failed',err:'err
 const gqlUrl = 'http://localhost:3000/graphql'
 await testIntrospectionExposure(gqlUrl, 'AUTH=token', result)
 await testBruteForceBypass(gqlUrl, 'AUTH=token', result)
+```
+
+### NoSQL injection
+
+```js
+import {
+  runNoSqlTests,
+  testNoSqlAuthBypass,
+  testNoSqlDataExtraction,
+  testNoSqlFieldEnumeration,
+} from 'build-aware-security-scanning'
+import { scanProject } from 'build-aware-security-scanning'
+
+const { endpoints } = scanProject('/path/to/project')
+
+// Run the full suite
+const stats = await runNoSqlTests({
+  base:      'http://localhost:3000',
+  endpoints,
+  cookie:    'AUTH=<session_token>',  // optional
+})
+// { passed: 3, failed: 2, errored: 0, skipped: 0 }
+
+// Run individual categories
+const stats2 = { passed:0, failed:0, errored:0, skipped:0 }
+const result = (label, status) => { stats2[{pass:'passed',fail:'failed',err:'errored',skip:'skipped'}[status]]++ }
+await testNoSqlAuthBypass('http://localhost:3000', endpoints, null, result)
+await testNoSqlFieldEnumeration('http://localhost:3000', endpoints, null, result)
 ```
 
 ### XSS & CSP security
@@ -550,6 +614,14 @@ Each endpoint object:
 | `base` | `string` | Base URL used for endpoint discovery and auth |
 | `gqlUrl` | `string` | Explicit GraphQL URL — skips the discovery phase |
 | `cookie` | `string` | Authenticated session cookie string |
+
+### `runNoSqlTests(opts)` → `Promise<{ passed, failed, errored, skipped }>`
+
+| Option | Type | Description |
+|---|---|---|
+| `base` | `string` | App base URL |
+| `endpoints` | `object[]` | Endpoint list from `scanProject()` — used to find auth and data routes |
+| `cookie` | `string` | Session cookie — supplements unauthenticated probing on data endpoints |
 
 ### `runXssTests(opts)` → `Promise<{ passed, failed, errored, skipped }>`
 

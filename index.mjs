@@ -96,3 +96,12 @@ export {
   testXssExploitability,
   testCspSecurity,
 } from './src/test-xss.mjs'
+
+export {
+  // Full NoSQL injection suite runner
+  runNoSqlTests,
+  // Individual NoSQL attack categories
+  testNoSqlAuthBypass,
+  testNoSqlDataExtraction,
+  testNoSqlFieldEnumeration,
+} from './src/test-nosql.mjs'

@@ -1,7 +1,7 @@
 {
   "name": "build-aware-security-scanning",
-  "version": "1.2.0",
-  "description": "CLI toolkit to discover API endpoints and test for SQL injection, API, GraphQL, CSRF, and XSS/CSP vulnerabilities in Next.js and Express apps",
+  "version": "1.3.0",
+  "description": "CLI toolkit to discover API endpoints and test for SQL injection, NoSQL injection, API, GraphQL, CSRF, and XSS/CSP vulnerabilities in Next.js and Express apps",
   "type": "module",
   "main": "index.mjs",
   "exports": {
@@ -11,7 +11,8 @@
     "./test-api": "./src/test-api.mjs",
     "./test-graphql": "./src/test-graphql.mjs",
     "./test-csrf":    "./src/test-csrf.mjs",
-    "./test-xss":     "./src/test-xss.mjs"
+    "./test-xss":     "./src/test-xss.mjs",
+    "./test-nosql":   "./src/test-nosql.mjs"
   },
   "bin": {
     "bass-list":    "./bin/list-endpoints.mjs",
@@ -19,7 +20,8 @@
     "bass-api":     "./bin/test-api.mjs",
     "bass-graphql": "./bin/test-graphql.mjs",
     "bass-csrf":    "./bin/test-csrf.mjs",
-    "bass-xss":     "./bin/test-xss.mjs"
+    "bass-xss":     "./bin/test-xss.mjs",
+    "bass-nosql":   "./bin/test-nosql.mjs"
   },
   "scripts": {
     "test": "node bin/list-endpoints.mjs . && echo 'list-endpoints OK'"
@@ -48,7 +50,11 @@
     "dom-xss",
     "csp",
     "content-security-policy",
-    "csp-bypass"
+    "csp-bypass",
+    "nosql",
+    "nosql-injection",
+    "mongodb",
+    "operator-injection"
   ],
   "author": "",
   "license": "MIT",
