@@ -49,3 +49,32 @@ export {
   testMassAssignment,
   testRestUrlPollution,
 } from './src/test-api.mjs'
+
+export {
+  // Full GraphQL security suite runner
+  runGraphqlTests,
+  // Individual GraphQL attack categories
+  testHiddenEndpoints,
+  testIntrospectionExposure,
+  testPrivateDataAccess,
+  testCsrfVulnerability,
+  testBruteForceBypass,
+} from './src/test-graphql.mjs'
+
+export {
+  // Full CSRF security suite runner
+  runCsrfTests,
+  // Individual CSRF attack categories
+  testNoDefenses,
+  testMethodDependentToken,
+  testTokenPresenceDependence,
+  testTokenNotTiedToSession,
+  testTokenTiedToNonSessionCookie,
+  testDuplicateCookieToken,
+  testSameSiteLaxMethodOverride,
+  testSameSiteStrictRedirect,
+  testSameSiteSiblingDomain,
+  testSameSiteLaxCookieRefresh,
+  testRefererPresenceDependence,
+  testBrokenRefererValidation,
+} from './src/test-csrf.mjs'

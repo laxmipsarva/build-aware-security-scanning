@@ -1,6 +1,6 @@
 # build-aware-security-scanning
 
-A zero-dependency CLI toolkit that **discovers API endpoints**, **tests for SQL injection** across all 18 OWASP attack categories, and **tests for API-level vulnerabilities** including mass assignment, parameter pollution, and hidden endpoint discovery — built for Next.js (App Router & Pages Router) and Express apps.
+A zero-dependency CLI toolkit that **discovers API endpoints**, **tests for SQL injection** across all 18 OWASP attack categories, **tests for API-level vulnerabilities** including mass assignment and parameter pollution, **tests GraphQL endpoints** for introspection, IDOR, and brute-force bypasses, and **tests for CSRF vulnerabilities** across 12 attack patterns — built for Next.js (App Router & Pages Router) and Express apps.
 
 ## Install
 
@@ -134,9 +134,7 @@ OOB_HOST=xyz.oast.fun bass-sqli
 ✓  All executed tests passed.
 ```
 
----
-
-## Attack Categories Covered
+**Attack categories:**
 
 | # | Category | Detection method |
 |---|---|---|
@@ -161,93 +159,7 @@ OOB_HOST=xyz.oast.fun bass-sqli
 
 ---
 
-## Programmatic API
-
-Both tools are fully importable for use inside your own test suites.
-
-```js
-import { scanProject, printEndpoints } from 'build-aware-security-scanning'
-
-// Scan a project and get structured data
-const result = scanProject('/path/to/project')
-console.log(result.endpoints)
-// [{ method: 'POST', path: '/api/auth', auth: false, bodyFields: ['email','password'], ... }]
-
-// Print the formatted table
-printEndpoints(result, { showSqli: true })
-```
-
-```js
-import { runAll, testLoginBypass, testTimeDelay } from 'build-aware-security-scanning'
-
-const BASE = 'http://localhost:3000/api'
-
-// Run the full suite
-const stats = await runAll({
-  base:     BASE,
-  email:    'admin@example.com',
-  password: 'secret',
-  oobHost:  'xyz.oast.fun',      // optional
-})
-// { passed: 87, failed: 0, errored: 0, skipped: 4 }
-
-// Or run individual categories
-import { makeResult, makeStats } from 'build-aware-security-scanning'
-const stats  = { passed: 0, failed: 0, errored: 0, skipped: 0 }
-const result = (label, status, detail) => { stats[{ pass:'passed', fail:'failed', err:'errored', skip:'skipped' }[status]]++; }
-
-await testLoginBypass(BASE, result)
-await testTimeDelay(BASE, result)
-```
-
-### `scanProject(projectDir)` → `{ framework, basePath, endpoints[] }`
-
-Each endpoint object:
-
-```ts
-{
-  method:      string          // 'GET' | 'POST' | 'PUT' | ...
-  path:        string          // '/api/feed/:pid'
-  auth:        boolean         // true if session/cookie check detected
-  bodyFields:  string[]        // ['seeds', 'species', 'price']
-  queryParams: string[]        // ['page', 'limit']
-  dynParams:   string[]        // ['pid']
-  modelCalls:  string[]        // ['addPondFeed', 'getFarm']
-  file:        string          // 'src/app/api/feed/[pid]/route.js'
-}
-```
-
-### `runAll(opts)` → `Promise<{ passed, failed, errored, skipped }>`
-
-| Option | Type | Description |
-|---|---|---|
-| `base` | `string` | Full API base URL |
-| `email` | `string` | Credentials for authenticated tests |
-| `password` | `string` | |
-| `oobHost` | `string` | OOB callback hostname for categories 16–17 |
-
----
-
-## Environment Variables
-
-| Variable | Used by | Description |
-|---|---|---|
-| `TEST_EMAIL` | `bass-sqli` | Login email for authenticated tests |
-| `TEST_PASSWORD` | `bass-sqli` | Login password |
-| `OOB_HOST` | `bass-sqli` | OOB server hostname (e.g. `xyz.oast.fun`) |
-
----
-
-## Requirements
-
-- Node.js ≥ 18
-- No runtime dependencies — uses only Node.js built-ins and the native `fetch` API
-
----
-
----
-
-## `bass-api` — API Security Test Suite
+### `bass-api` — API Security Test Suite
 
 Tests the **running API** for 5 categories of API-level vulnerabilities, optionally using the endpoint list produced by `bass-list`.
 
@@ -265,7 +177,7 @@ bass-api http://localhost:1010/farm-management/api /path/to/project
 TEST_EMAIL=admin@example.com TEST_PASSWORD=secret bass-api http://... /path/to/project
 ```
 
-### Attack categories
+**Attack categories:**
 
 | # | Category | What is tested |
 |---|---|---|
@@ -275,7 +187,144 @@ TEST_EMAIL=admin@example.com TEST_PASSWORD=secret bass-api http://... /path/to/p
 | 4 | **Mass assignment vulnerability** | Injects 20 privileged fields (`isAdmin`, `role`, `price`, `balance`, `verified`, `userId`, …) into every POST/PUT body. Flags if the response reflects any injected value or if the HTTP status changes. |
 | 5 | **Server-side parameter pollution — REST URL** | Path traversal (`../admin`, `%2e%2e%2f`), null-byte (`1%00.json`), fragment injection, double slash, array params (`1,2,3`), SSTI probe (`{{7*7}}`), query-string override of REST param. |
 
-### Programmatic API
+---
+
+### `bass-graphql` — GraphQL Security Test Suite
+
+Tests a **running GraphQL endpoint** for 5 categories of GraphQL-specific vulnerabilities. Automatically discovers the GraphQL endpoint if not specified.
+
+```bash
+# Test default URL (localhost:3000)
+bass-graphql
+
+# Custom base URL (endpoint auto-discovered)
+bass-graphql http://localhost:3000/api
+
+# Explicit GraphQL endpoint (skips discovery)
+bass-graphql http://localhost:3000/api --graphql=http://localhost:3000/graphql
+
+# With credentials (enables authenticated tests)
+TEST_EMAIL=admin@example.com TEST_PASSWORD=secret bass-graphql http://localhost:3000/api
+```
+
+**Attack categories:**
+
+| # | Category | What is tested |
+|---|---|---|
+| 1 | **Finding a hidden GraphQL endpoint** | Probes 27 common GraphQL paths (`/graphql`, `/api/graphql`, `/gql`, `/query`, …) via POST and GET typename probes. Also checks for exposed GraphQL IDE/explorer UIs (GraphiQL, Playground, Altair, Voyager). |
+| 2 | **Accidental exposure of private GraphQL fields** | Runs full introspection; scans all types for sensitive field names (password, token, secret, SSN, CVV, …) and sensitive type names (Admin, Internal, Credential, …). Also flags deprecated fields still in the schema and exposed mutations/subscriptions. |
+| 3 | **Accessing private GraphQL data (authorization bypass)** | Tests unauthenticated access to schema-derived and common query fields (`me`, `viewer`, `users`, `posts`). Probes IDOR via sequential ID enumeration and aliased batch queries. Checks for unrestricted user-list exposure. |
+| 4 | **CSRF exploits over GraphQL** | Checks whether mutations are executable via GET requests, `application/x-www-form-urlencoded`, and `text/plain` POST bodies (all bypass CORS preflight). Inspects CORS headers for wildcard origins and credentialed access. Verifies SameSite cookie attributes and CSRF token enforcement on mutations. |
+| 5 | **Bypassing GraphQL brute force protections** | Tests JSON array batching (10 operations in one HTTP request), alias-based batching (10 aliased calls in one query), fragment amplification, and deep query nesting (depth 10). Also identifies login mutations by name for targeted brute-force enumeration. |
+
+---
+
+### `bass-csrf` — CSRF Security Test Suite
+
+Tests the **running app** for 12 categories of CSRF vulnerabilities covering token weaknesses, SameSite bypasses, and Referer validation flaws. Requires an authenticated session to run most tests.
+
+```bash
+# Test default URL (localhost:3000) — most tests skipped without credentials
+bass-csrf
+
+# Custom base URL with credentials
+TEST_EMAIL=admin@example.com TEST_PASSWORD=secret bass-csrf http://localhost:3000
+
+# Pass project path to use discovered endpoints as test targets
+TEST_EMAIL=admin@example.com TEST_PASSWORD=secret bass-csrf http://localhost:3000 /path/to/project
+```
+
+**Attack categories:**
+
+| # | Category | What is tested |
+|---|---|---|
+| 1 | **No defenses** | Submits state-changing POST with authenticated session but no CSRF token, no Origin, and no Referer. Acceptance = vulnerable. |
+| 2 | **Token validation depends on request method** | Sends POST with wrong token (expects 403), then sends GET for the same action. If GET is accepted, CSRF token is only enforced on POST. |
+| 3 | **Token validation depends on token being present** | Sends POST with an invalid token (expects 403), then re-sends with the token field entirely omitted. If omission is accepted, validation is skipped when the field is absent. |
+| 4 | **CSRF token not tied to user session** | Extracts a valid CSRF token from the app, then submits it with a tampered or missing session cookie. If accepted, the token is not session-bound and can be reused across victims. |
+| 5 | **CSRF token tied to non-session cookie** | Detects a dedicated CSRF cookie (e.g. `XSRF-TOKEN`). Then forges both the cookie and the matching body/header field with attacker-controlled values to demonstrate subdomain injection risk. |
+| 6 | **Double-submit cookie pattern** | Crafts an attacker-controlled CSRF value, injects it in both the session cookie and all known CSRF field names, and sends a forged request. If accepted, the double-submit pattern is bypassable. |
+| 7 | **SameSite Lax bypass via method override** | Detects the SameSite attribute in use, then tests `_method=GET` query param, `X-HTTP-Method-Override`, `X-Method-Override`, and `X-HTTP-Method` headers on POST endpoints to convert a cross-site POST into a server-side GET. |
+| 8 | **SameSite Strict bypass via client-side redirect** | Probes 12 common redirect paths × 4 redirect parameters for open redirects. An open redirect on the same site allows an attacker to chain: evil.com → same-site redirect → sensitive action with Strict cookies attached. Also checks for external `window.location` JS redirects. |
+| 9 | **SameSite Strict bypass via sibling domain** | Checks CORS preflight responses for all common subdomains (staging, dev, test, uploads, static, cdn, …). If a sibling subdomain is accepted with `Access-Control-Allow-Credentials: true`, XSS there enables full CSRF on the main domain. Also checks if the session cookie Domain attribute scopes to the whole eTLD+1. |
+| 10 | **SameSite Lax bypass via cookie refresh** | Searches for cookie-refresh endpoints (`/auth/refresh`, `/oauth/authorize`, `/auth/session`, …) that set new Lax or no-SameSite cookies. Chrome's 2-minute Lax grace window allows cross-site POSTs immediately after a cookie refresh. |
+| 11 | **Referer validation depends on header being present** | Sends three parallel requests: valid same-origin Referer, attacker Referer, and no Referer. If the attacker Referer is blocked but the absent Referer is accepted, the check is bypassable via `<meta name="referrer" content="no-referrer">`. |
+| 12 | **Broken Referer validation** | Confirms Referer validation is active, then tests 7 bypass payloads: domain as subdomain of evil host, domain in query string, domain in URL path, prefix bypass, `null` Referer, schema-less Referer, and HTTP instead of HTTPS. |
+
+---
+
+## OWASP Coverage
+
+Each tool maps directly to specific entries in the **[OWASP Top 10 (2021)](https://owasp.org/Top10/)** for web applications and the **[OWASP API Security Top 10 (2023)](https://owasp.org/API-Security/editions/2023/en/0x00-header/)** for APIs.
+
+### `bass-sqli` — OWASP Top 10 (2021)
+
+| OWASP | Category | What the suite covers |
+|---|---|---|
+| **A03:2021** | **Injection** | All 18 SQLi attack classes: error-based, blind boolean, blind time-delay (MySQL/MSSQL/Oracle), UNION-based data retrieval, login bypass, out-of-band interaction and exfiltration, schema enumeration via `information_schema` and `all_tables`, and encoding/filter bypass (XML entities, double-encode, comment breaks, case mixing). Every discovered endpoint is tested. |
+
+### `bass-api` — OWASP API Security Top 10 (2023)
+
+| OWASP API | Category | What the suite covers |
+|---|---|---|
+| **API3:2023** | **Broken Object Property Level Authorization** | Mass assignment: injects 20 privileged fields (`isAdmin`, `role`, `price`, `balance`, `verified`, `userId`, …) into every POST/PUT body and flags any that are reflected in the response or change the HTTP status. |
+| **API8:2023** | **Security Misconfiguration** | Query-string parameter pollution (duplicate params, encoded `&`, array notation, null-byte truncation, duplicate JSON keys) and REST URL pollution (path traversal, null-byte, fragment injection, double slash, SSTI probe `{{7*7}}`, query-string REST param override). |
+| **API9:2023** | **Improper Inventory Management** | Documentation exploitation probes 20+ doc endpoints (`/swagger.json`, `/openapi.json`, `/api-docs`, `/redoc`, …) and parses any found schema to surface undocumented or admin paths. Hidden endpoint discovery probes 30+ unlisted paths (`/admin`, `/debug`, `/health`, `/export`, …), unexpected HTTP methods, method-override headers, and API version paths (`/v1`, `/v2`, `/v3`). |
+
+### `bass-graphql` — OWASP API Security Top 10 (2023)
+
+| OWASP API | Category | What the suite covers |
+|---|---|---|
+| **API1:2023** | **Broken Object Level Authorization** | Tests unauthenticated access to schema-derived and common query fields (`me`, `viewer`, `users`, `posts`). Probes IDOR via sequential ID enumeration (IDs 1–5) and aliased batch queries. Checks for unrestricted user-list exposure returning PII without credentials. |
+| **API4:2023** | **Unrestricted Resource Consumption** | Brute-force bypass: sends JSON array batches (10 operations in one HTTP request), alias floods (10 aliased calls in one query document), fragment amplification (one fragment spread 10 times), and deep query nesting (depth 10) to verify that rate limiting applies per-operation rather than per-request. |
+| **API8:2023** | **Security Misconfiguration** | Full introspection scan for sensitive field names (password, token, secret, SSN, CVV, …) and sensitive type names (Admin, Internal, Credential, Session, …). Flags deprecated fields still present in schema. CORS header inspection detects wildcard `Access-Control-Allow-Origin` and credentialed cross-origin access. Checks `Content-Type` restrictions and SameSite cookie attributes on mutations. |
+| **API9:2023** | **Improper Inventory Management** | Hidden endpoint discovery probes 27 common GraphQL paths via POST and GET typename probes. Separately checks for publicly exposed GraphQL IDE/explorer UIs (GraphiQL, Playground, Altair, Voyager) that allow unauthenticated schema browsing and query execution. |
+
+### `bass-csrf` — OWASP Top 10 (2021)
+
+| OWASP | Category | What the suite covers |
+|---|---|---|
+| **A01:2021** | **Broken Access Control** | All 12 CSRF test categories verify that state-changing endpoints correctly reject cross-origin requests: missing defenses (no token, no Origin, no Referer); token bypass via method dependency (GET skips token check), token presence dependency (omitted field skips check), cross-session token reuse (token not bound to session), and forged double-submit cookies; SameSite bypasses via method-override headers (`X-HTTP-Method-Override`, `_method=GET`), open-redirect chains (Strict bypass), sibling-domain CORS misconfiguration, and the 2-minute Lax cookie-refresh grace window; Referer validation bypass via absent header (no-referrer meta tag) and weak contains-check payloads (domain as subdomain, in query string, in path, with prefix). |
+
+---
+
+## Programmatic API
+
+All tools are fully importable for use inside your own test suites.
+
+### Endpoint discovery
+
+```js
+import { scanProject, printEndpoints } from 'build-aware-security-scanning'
+
+const result = scanProject('/path/to/project')
+console.log(result.endpoints)
+// [{ method: 'POST', path: '/api/auth', auth: false, bodyFields: ['email','password'], ... }]
+
+printEndpoints(result, { showSqli: true })
+```
+
+### SQL injection
+
+```js
+import { runAll, testLoginBypass, testTimeDelay } from 'build-aware-security-scanning'
+
+const stats = await runAll({
+  base:     'http://localhost:3000/api',
+  email:    'admin@example.com',
+  password: 'secret',
+  oobHost:  'xyz.oast.fun',   // optional
+})
+// { passed: 87, failed: 0, errored: 0, skipped: 4 }
+
+// Or run individual categories
+const stats2 = { passed: 0, failed: 0, errored: 0, skipped: 0 }
+const result = (label, status) => { stats2[{pass:'passed',fail:'failed',err:'errored',skip:'skipped'}[status]]++ }
+await testLoginBypass('http://localhost:3000/api', result)
+await testTimeDelay('http://localhost:3000/api', result)
+```
+
+### API security
 
 ```js
 import { runApiTests, testMassAssignment, testRestUrlPollution } from 'build-aware-security-scanning'
@@ -283,7 +332,6 @@ import { scanProject } from 'build-aware-security-scanning'
 
 const { endpoints } = scanProject('/path/to/project')
 
-// Run full suite
 const stats = await runApiTests({
   base:      'http://localhost:3000/api',
   endpoints,
@@ -296,6 +344,140 @@ const stats2 = { passed:0, failed:0, errored:0, skipped:0 }
 const result = (label, status) => { stats2[{pass:'passed',fail:'failed',err:'errored',skip:'skipped'}[status]]++ }
 await testMassAssignment('http://localhost:3000/api', endpoints, 'AUTH=token', result)
 ```
+
+### GraphQL security
+
+```js
+import {
+  runGraphqlTests,
+  testHiddenEndpoints,
+  testIntrospectionExposure,
+  testPrivateDataAccess,
+  testCsrfVulnerability,
+  testBruteForceBypass,
+} from 'build-aware-security-scanning'
+
+// Run the full suite (auto-discovers GraphQL endpoint)
+const stats = await runGraphqlTests({
+  base:   'http://localhost:3000/api',
+  cookie: 'AUTH=<session_token>',  // optional
+})
+// { passed: 18, failed: 2, errored: 0, skipped: 1 }
+
+// Provide an explicit GraphQL URL to skip discovery
+const stats2 = await runGraphqlTests({
+  base:   'http://localhost:3000',
+  gqlUrl: 'http://localhost:3000/graphql',
+  cookie: 'AUTH=<session_token>',
+})
+
+// Run individual categories
+const stats3 = { passed:0, failed:0, errored:0, skipped:0 }
+const result = (label, status) => { stats3[{pass:'passed',fail:'failed',err:'errored',skip:'skipped'}[status]]++ }
+const gqlUrl = 'http://localhost:3000/graphql'
+await testIntrospectionExposure(gqlUrl, 'AUTH=token', result)
+await testBruteForceBypass(gqlUrl, 'AUTH=token', result)
+```
+
+### CSRF security
+
+```js
+import {
+  runCsrfTests,
+  testNoDefenses,
+  testTokenNotTiedToSession,
+  testSameSiteLaxMethodOverride,
+  testBrokenRefererValidation,
+} from 'build-aware-security-scanning'
+import { scanProject } from 'build-aware-security-scanning'
+
+const { endpoints } = scanProject('/path/to/project')
+
+// Run the full suite
+const stats = await runCsrfTests({
+  base:      'http://localhost:3000',
+  endpoints,
+  cookie:    'AUTH=<session_token>',
+})
+// { passed: 24, failed: 1, errored: 0, skipped: 6 }
+
+// Run individual categories
+const stats2 = { passed:0, failed:0, errored:0, skipped:0 }
+const result = (label, status) => { stats2[{pass:'passed',fail:'failed',err:'errored',skip:'skipped'}[status]]++ }
+await testNoDefenses('http://localhost:3000', endpoints, 'AUTH=token', result)
+await testBrokenRefererValidation('http://localhost:3000', endpoints, 'AUTH=token', result)
+```
+
+---
+
+## API Reference
+
+### `scanProject(projectDir)` → `{ framework, basePath, endpoints[] }`
+
+Each endpoint object:
+
+```ts
+{
+  method:      string    // 'GET' | 'POST' | 'PUT' | ...
+  path:        string    // '/api/feed/:pid'
+  auth:        boolean   // true if session/cookie check detected
+  bodyFields:  string[]  // ['seeds', 'species', 'price']
+  queryParams: string[]  // ['page', 'limit']
+  dynParams:   string[]  // ['pid']
+  modelCalls:  string[]  // ['addPondFeed', 'getFarm']
+  file:        string    // 'src/app/api/feed/[pid]/route.js'
+}
+```
+
+### `runAll(opts)` → `Promise<{ passed, failed, errored, skipped }>`
+
+| Option | Type | Description |
+|---|---|---|
+| `base` | `string` | Full API base URL |
+| `email` | `string` | Credentials for authenticated tests |
+| `password` | `string` | |
+| `oobHost` | `string` | OOB callback hostname for categories 16–17 |
+
+### `runApiTests(opts)` → `Promise<{ passed, failed, errored, skipped }>`
+
+| Option | Type | Description |
+|---|---|---|
+| `base` | `string` | Full API base URL |
+| `endpoints` | `object[]` | Endpoint list from `scanProject()` |
+| `cookie` | `string` | Authenticated session cookie string |
+
+### `runGraphqlTests(opts)` → `Promise<{ passed, failed, errored, skipped }>`
+
+| Option | Type | Description |
+|---|---|---|
+| `base` | `string` | Base URL used for endpoint discovery and auth |
+| `gqlUrl` | `string` | Explicit GraphQL URL — skips the discovery phase |
+| `cookie` | `string` | Authenticated session cookie string |
+
+### `runCsrfTests(opts)` → `Promise<{ passed, failed, errored, skipped }>`
+
+| Option | Type | Description |
+|---|---|---|
+| `base` | `string` | Full app base URL |
+| `endpoints` | `object[]` | Endpoint list from `scanProject()` — used to find state-changing targets |
+| `cookie` | `string` | Authenticated session cookie string — required for most tests |
+
+---
+
+## Environment Variables
+
+| Variable | Used by | Description |
+|---|---|---|
+| `TEST_EMAIL` | all CLIs | Login email for authenticated tests |
+| `TEST_PASSWORD` | all CLIs | Login password |
+| `OOB_HOST` | `bass-sqli` | OOB server hostname (e.g. `xyz.oast.fun`) |
+
+---
+
+## Requirements
+
+- Node.js ≥ 18
+- No runtime dependencies — uses only Node.js built-ins and the native `fetch` API
 
 ---
 
