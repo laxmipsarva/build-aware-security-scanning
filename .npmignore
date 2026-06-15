@@ -1,0 +1,11 @@
+# Dev / editor config — never publish these
+.claude/
+.vscode/
+.idea/
+*.local.json
+
+# Test files — not needed by consumers
+test/
+
+# Dev docs
+demo.md
