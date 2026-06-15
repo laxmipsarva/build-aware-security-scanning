@@ -10,24 +10,24 @@
     "./test-sqli": "./src/test-sqli.mjs",
     "./test-api": "./src/test-api.mjs",
     "./test-graphql": "./src/test-graphql.mjs",
-    "./test-csrf":    "./src/test-csrf.mjs",
-    "./test-xss":     "./src/test-xss.mjs",
-    "./test-nosql":   "./src/test-nosql.mjs"
+    "./test-csrf": "./src/test-csrf.mjs",
+    "./test-xss": "./src/test-xss.mjs",
+    "./test-nosql": "./src/test-nosql.mjs"
   },
   "bin": {
-    "bass-list":    "./bin/list-endpoints.mjs",
-    "bass-sqli":    "./bin/test-sqli.mjs",
-    "bass-api":     "./bin/test-api.mjs",
-    "bass-graphql": "./bin/test-graphql.mjs",
-    "bass-csrf":    "./bin/test-csrf.mjs",
-    "bass-xss":     "./bin/test-xss.mjs",
-    "bass-nosql":   "./bin/test-nosql.mjs"
+    "bass-list": "bin/list-endpoints.mjs",
+    "bass-sqli": "bin/test-sqli.mjs",
+    "bass-api": "bin/test-api.mjs",
+    "bass-graphql": "bin/test-graphql.mjs",
+    "bass-csrf": "bin/test-csrf.mjs",
+    "bass-xss": "bin/test-xss.mjs",
+    "bass-nosql": "bin/test-nosql.mjs"
   },
   "scripts": {
-    "test":          "node --test test/list-endpoints.test.mjs test/test-api.test.mjs test/test-csrf.test.mjs test/test-graphql.test.mjs",
-    "test:watch":    "node --test --watch test/list-endpoints.test.mjs test/test-api.test.mjs test/test-csrf.test.mjs test/test-graphql.test.mjs",
+    "test": "node --test test/list-endpoints.test.mjs test/test-api.test.mjs test/test-csrf.test.mjs test/test-graphql.test.mjs",
+    "test:watch": "node --test --watch test/list-endpoints.test.mjs test/test-api.test.mjs test/test-csrf.test.mjs test/test-graphql.test.mjs",
     "test:coverage": "node --test --experimental-test-coverage test/list-endpoints.test.mjs test/test-api.test.mjs test/test-csrf.test.mjs test/test-graphql.test.mjs",
-    "lint":          "node bin/list-endpoints.mjs . && echo 'list-endpoints OK'"
+    "lint": "node bin/list-endpoints.mjs . && echo 'list-endpoints OK'"
   },
   "keywords": [
     "security",
@@ -59,7 +59,7 @@
     "mongodb",
     "operator-injection"
   ],
-  "author": "",
+  "author": "laxmis",
   "license": "Apache-2.0",
   "engines": {
     "node": ">=18.0.0"
