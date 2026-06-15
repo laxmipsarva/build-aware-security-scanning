@@ -24,7 +24,10 @@
     "bass-nosql":   "./bin/test-nosql.mjs"
   },
   "scripts": {
-    "test": "node bin/list-endpoints.mjs . && echo 'list-endpoints OK'"
+    "test":          "node --test test/list-endpoints.test.mjs test/test-api.test.mjs test/test-csrf.test.mjs test/test-graphql.test.mjs",
+    "test:watch":    "node --test --watch test/list-endpoints.test.mjs test/test-api.test.mjs test/test-csrf.test.mjs test/test-graphql.test.mjs",
+    "test:coverage": "node --test --experimental-test-coverage test/list-endpoints.test.mjs test/test-api.test.mjs test/test-csrf.test.mjs test/test-graphql.test.mjs",
+    "lint":          "node bin/list-endpoints.mjs . && echo 'list-endpoints OK'"
   },
   "keywords": [
     "security",
@@ -57,7 +60,7 @@
     "operator-injection"
   ],
   "author": "",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">=18.0.0"
   }
