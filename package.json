@@ -1,6 +1,6 @@
 {
-  "name": "build-aware-security-scanning",
-  "version": "1.0.0-beta.0",
+  "name": "secure-build",
+  "version": "1.0.0",
   "description": "CLI toolkit to discover API endpoints and test for SQL injection, NoSQL injection, API, GraphQL, CSRF, and XSS/CSP vulnerabilities in Next.js and Express apps",
   "type": "module",
   "main": "index.mjs",
