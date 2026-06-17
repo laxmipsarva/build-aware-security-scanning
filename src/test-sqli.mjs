@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'url'
+import { startCapture, writeReport } from './html-reporter.mjs'
 
 const TIME_THRESH = 3000
 
@@ -464,6 +465,7 @@ export async function main(argv = process.argv.slice(2)) {
   const password = process.env.TEST_PASSWORD || ''
   const oobHost  = process.env.OOB_HOST      || ''
 
+  startCapture()
   console.log(`\n${BOLD}╔══════════════════════════════════════════════╗`)
   console.log(`║  SQL Injection Test Suite                    ║`)
   console.log(`╚══════════════════════════════════════════════╝${R}`)
@@ -481,6 +483,8 @@ export async function main(argv = process.argv.slice(2)) {
   console.log(`  ${YLW}Errors               : ${stats.errored}${R}`)
   console.log(`  ${DIM}Skipped              : ${stats.skipped}${R}`)
   console.log(`  Total                : ${total}`)
+
+  await writeReport({ title: 'SQL Injection Test Suite', target: base, stats })
 
   if (stats.failed > 0) {
     console.log(`\n${RED}${BOLD}⚠  Vulnerabilities found — review FAIL lines above.${R}\n`)

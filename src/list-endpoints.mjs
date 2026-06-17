@@ -1,6 +1,7 @@
 import fs   from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { startCapture, writeReport } from './html-reporter.mjs'
 
 // ── ANSI ───────────────────────────────────────────────────────────────────────
 const R    = '\x1b[0m'
@@ -308,10 +309,13 @@ export async function main(argv = process.argv.slice(2)) {
   const showSqli   = argv.includes('--sqli')
   const projectDir = path.resolve(argv.find(a => !a.startsWith('--')) || process.cwd())
 
+  startCapture()
   const result = scanProject(projectDir)
 
   if (showJson) console.log(JSON.stringify(result, null, 2))
   else          printEndpoints(result, { showSqli })
+
+  await writeReport({ title: 'API Endpoint Map', target: projectDir })
 }
 
 // helpers

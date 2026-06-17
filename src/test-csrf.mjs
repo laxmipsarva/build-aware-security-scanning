@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'url'
+import { startCapture, writeReport } from './html-reporter.mjs'
 
 const R = '\x1b[0m', GREEN = '\x1b[32m', RED = '\x1b[31m',
       YLW = '\x1b[33m', BOLD = '\x1b[1m', DIM = '\x1b[2m', CYAN = '\x1b[36m', MAG = '\x1b[35m'
@@ -934,6 +935,7 @@ export async function main(argv = process.argv.slice(2)) {
   const email    = process.env.TEST_EMAIL    || ''
   const password = process.env.TEST_PASSWORD || ''
 
+  startCapture()
   console.log(`\n${BOLD}╔══════════════════════════════════════════════╗`)
   console.log(`║  CSRF Security Test Suite                    ║`)
   console.log(`╚══════════════════════════════════════════════╝${R}`)
@@ -988,6 +990,8 @@ export async function main(argv = process.argv.slice(2)) {
   console.log(`  ${YLW}Errors               : ${stats.errored}${R}`)
   console.log(`  ${DIM}Skipped              : ${stats.skipped}${R}`)
   console.log(`  Total                : ${total}`)
+
+  await writeReport({ title: 'CSRF Security Test Suite', target: base, stats })
 
   if (stats.failed > 0) {
     console.log(`\n${RED}${BOLD}⚠  Vulnerabilities found — review FAIL lines above.${R}\n`)
